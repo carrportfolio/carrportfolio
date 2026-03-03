@@ -489,7 +489,17 @@ function loadData(csv, save=true){
     render(); fetchPrices(holdings); startCountdown();
   }catch(e){ errEl.textContent='⚠ Error: '+e.message; errEl.style.display='block'; }
 }
-
+// ─── MODAL ────────────────────────────────────────────────────────────────────
+function openModal(){ document.getElementById('modal-bg').classList.add('open'); }
+function closeModal(){ document.getElementById('modal-bg').classList.remove('open'); }
+function importCSV(){ loadData(document.getElementById('csv-input').value||SAMPLE); }
+function loadFile(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{ document.getElementById('csv-input').value=e.target.result; };
+  reader.readAsText(file,'UTF-8');
+}
+function refresh(){ fetchPrices(holdings); countdown=300; }
 // ─── EDIT ─────────────────────────────────────────────────────────────────────
 function openEdit(key,nombre){
   editKey=key.toUpperCase();
