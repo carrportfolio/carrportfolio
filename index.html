@@ -175,6 +175,7 @@ const gm = t => TMETA[t] || {color:'#94a3b8', icon:'•', bg:'#94a3b818'};
 let holdings = [];
 let prices = {};
 let usdEur = 0.92;
+let fxRates = { EUR:1, USD:0.92, GBP:1.17, SEK:0.087, CAD:0.68 }; 
 let filterTipo = 'Todos';
 let editKey = null;
 let countdown = 300;
@@ -331,6 +332,7 @@ async function fetchPrices(hs){
     const data = await resp.json();
 
     if(data.usdEur) usdEur = data.usdEur;
+    if(data.fxRates) fxRates = data.fxRates;
 
     if(data.prices){
       Object.entries(data.prices).forEach(([k,v])=>{
