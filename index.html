@@ -514,12 +514,21 @@ function saveEdit(){
   const val=parseFloat(document.getElementById('edit-input').value);
   if(isNaN(val)||val<=0){ document.getElementById('edit-input').style.borderColor='var(--red)'; return; }
   prices[editKey]={price:val,change24h:prices[editKey]?(prices[editKey].change24h||0):0,source:'Manual'};
+  // Guardar precios manuales en localStorage
+  const manualPrices=JSON.parse(localStorage.getItem('manual_prices')||'{}');
+  manualPrices[editKey]=val;
+  localStorage.setItem('manual_prices', JSON.stringify(manualPrices));
   closeEdit(); render();
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 (function(){
   document.getElementById('btn-import').addEventListener('click', openModal);
+  // Restaurar precios manuales guardados
+  const manualPrices=JSON.parse(localStorage.getItem('manual_prices')||'{}');
+  Object.entries(manualPrices).forEach(([k,v])=>{
+    prices[k]={price:v,change24h:0,source:'Manual'};
+  });
   const saved = localStorage.getItem('portfolio_csv');
   loadData(saved || SAMPLE, !saved);
   startCountdown();
