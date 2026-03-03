@@ -267,16 +267,38 @@ function enrich(hs){
     const isCash=tipo==='Cash';
     const key=h.ticker?h.ticker.toUpperCase():null;
     const live=key?prices[key]:null;
-    const fxRate=h.divisa==='USD'?usdEur:(FX[h.divisa]||1);
-    const pcEUR=(h.precio_compra||0)*fxRate;
-    const paEUR=live?live.price:pcEUR;
-    const vC=pcEUR*h.cantidad, vA=paEUR*h.cantidad;
-    const ganPct=!isCash&&vC>0?((vA-vC)/vC)*100:0;
-    const ganAbs=!isCash?vA-vC:0;
-    return {...h,tipo,pcEUR,paEUR,vC,vA,ganPct,ganAbs,
-      change24h:live?(live.change24h||0):0,
-      ch24Abs:live?((live.change24h||0)/100)*vA:0,
-      hasLive:!!live, source:live?live.source:null};
+
+    // Divisa nativa del activo
+    const currency = live ? live.currency : (h.divisa || 'EUR');
+
+    // Tipo de cambio nativa → EUR
+    let toEUR = 1;
+    if (currency === 'GBp') {
+      toEUR = (fxRates['GBP'] || 1.17) / 100;
+    } else if (currency !== 'EUR') {
+      toEUR = fxRates[currency] || FX[currency] || 1;
+    }
+
+    // Precio actual en divisa original (live.originalPrice) o fallback al precio compra
+    const paOrig = live ? (live.originalPrice || live.price / toEUR) : h.precio_compra;
+    const pcOrig = h.precio_compra;
+
+    // Ganancia en divisa original, luego convertida a EUR
+    const ganOrigUnit = !isCash ? paOrig - pcOrig : 0;
+    const ganOrigTotal = ganOrigUnit * h.cantidad;
+    const ganAbs = ganOrigTotal * toEUR;
+    const ganPct = !isCash && pcOrig > 0 ? ((paOrig - pcOrig) / pcOrig) * 100 : 0;
+
+    // Valores en EUR
+    const pcEUR = pcOrig * toEUR;
+    const paEUR = live ? live.price : pcEUR;
+    const vC = pcEUR * h.cantidad;
+    const vA = paEUR * h.cantidad;
+
+    return {...h, tipo, pcEUR, paEUR, pcOrig, paOrig, currency, toEUR, vC, vA, ganPct, ganAbs,
+      change24h: live ? (live.change24h || 0) : 0,
+      ch24Abs: live ? ((live.change24h || 0) / 100) * vA : 0,
+      hasLive: !!live, source: live ? live.source : null};
   });
 }
 
