@@ -479,25 +479,16 @@ function startCountdown(){
 }
 
 // ─── IMPORT ───────────────────────────────────────────────────────────────────
-function loadData(csv){
+function loadData(csv, save=true){
   const errEl=document.getElementById('modal-error');
   try{
     const parsed=parseCSV(csv);
     if(!parsed.length){ errEl.textContent='⚠ No se encontraron filas válidas.'; errEl.style.display='block'; return; }
     holdings=parsed; errEl.style.display='none'; closeModal();
+    if(save) localStorage.setItem('portfolio_csv', csv);
     render(); fetchPrices(holdings); startCountdown();
   }catch(e){ errEl.textContent='⚠ Error: '+e.message; errEl.style.display='block'; }
 }
-function importCSV(){ loadData(document.getElementById('csv-input').value||SAMPLE); }
-function loadFile(input){
-  const file=input.files[0]; if(!file) return;
-  const reader=new FileReader();
-  reader.onload=e=>{document.getElementById('csv-input').value=e.target.result;};
-  reader.readAsText(file,'UTF-8');
-}
-function openModal(){ document.getElementById('modal-bg').classList.add('open'); }
-function closeModal(){ document.getElementById('modal-bg').classList.remove('open'); }
-function refresh(){ fetchPrices(holdings); countdown=300; }
 
 // ─── EDIT ─────────────────────────────────────────────────────────────────────
 function openEdit(key,nombre){
@@ -517,7 +508,8 @@ function saveEdit(){
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-loadData(SAMPLE);
+onst saved = localStorage.getItem('portfolio_csv');
+loadData(saved || SAMPLE, !saved);
 startCountdown();
 </script>
 </body>
