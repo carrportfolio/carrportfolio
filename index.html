@@ -508,9 +508,11 @@ function saveEdit(){
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
-const saved = localStorage.getItem('portfolio_csv');
-loadData(saved || SAMPLE, !saved);
-startCountdown();
+(function(){
+  const saved = localStorage.getItem('portfolio_csv');
+  loadData(saved || SAMPLE, !saved);
+  startCountdown();
+})();
 </script>
 </body>
 </html>
