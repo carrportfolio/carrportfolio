@@ -519,11 +519,11 @@ function saveEdit(){
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 (function(){
+  document.getElementById('btn-import').addEventListener('click', openModal);
   const saved = localStorage.getItem('portfolio_csv');
   loadData(saved || SAMPLE, !saved);
   startCountdown();
 })();
-document.getElementById('btn-import').addEventListener('click', openModal);
 </script>
 </body>
 </html>
