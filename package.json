@@ -1,0 +1,8 @@
+{
+  "name": "mi-portfolio",
+  "version": "1.0.0",
+  "description": "Portfolio tracker",
+  "engines": {
+    "node": "18"
+  }
+}
