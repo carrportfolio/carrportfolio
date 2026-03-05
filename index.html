@@ -366,38 +366,42 @@ async function fetchPrices(hs){
 // ─── RENDER ───────────────────────────────────────────────────────────────────
 function render(){
   const enriched=enrich(holdings);
+
+  // Markets (siempre visible)
+  const marketItems=[
+    {key:'GC=F',      label:'Oro',          unit:'$/oz', decimals:0},
+    {key:'SI=F',      label:'Plata',        unit:'$/oz', decimals:2},
+    {key:'EURUSD=X',  label:'EUR/USD',      unit:'',     decimals:4},
+    {key:'BTC-USD',   label:'BTC',          unit:'$',    decimals:0},
+    {key:'^GSPC',     label:'S&P 500',      unit:'',     decimals:0},
+    {key:'^IXIC',     label:'Nasdaq',       unit:'',     decimals:0},
+    {key:'^IBEX',     label:'IBEX 35',      unit:'',     decimals:0},
+    {key:'^STOXX50E', label:'EuroStoxx 50', unit:'',     decimals:0},
+    {key:'URTH',      label:'MSCI World',   unit:'$',    decimals:2},
+    {key:'IEUR.L',    label:'MSCI Europe',  unit:'£',    decimals:2},
+    {key:'^FCHI',     label:'CAC 40',       unit:'',     decimals:0},
+    {key:'^GDAXI',    label:'DAX',          unit:'',     decimals:0},
+    {key:'^EURIBOR3M',label:'Euríbor 3M',   unit:'%',    decimals:3},
+  ];
+  document.getElementById('markets').innerHTML=marketItems.map(m=>{
+    const p=prices[m.key];
+    const val=p?p.price.toLocaleString('es-ES',{minimumFractionDigits:m.decimals,maximumFractionDigits:m.decimals}):'—';
+    const chg=p?p.change24h:0;
+    return '<div class="card" style="padding:10px 16px;display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px">'+
+      '<div style="font-size:.58rem;color:var(--dim);font-family:monospace;text-transform:uppercase;letter-spacing:1px">'+m.label+'</div>'+
+      '<div style="font-size:.95rem;font-weight:800">'+val+(m.unit?'<span style="font-size:.58rem;color:var(--dim);margin-left:2px">'+m.unit+'</span>':'')+'</div>'+
+      (p?'<span class="'+(chg>=0?'pos':'neg')+'" style="font-size:.68rem">'+(chg>=0?'▲':'▼')+' '+Math.abs(chg).toFixed(2)+'%</span>':'<span style="color:var(--dim);font-size:.68rem">sin datos</span>')+
+      '</div>';
+  }).join('');
+
   if(!enriched.length){
-    const marketItems=[
-  {key:'GC=F',      label:'Oro',          unit:'$/oz', decimals:0},
-  {key:'SI=F',      label:'Plata',        unit:'$/oz', decimals:2},
-  {key:'EURUSD=X',  label:'EUR/USD',      unit:'',     decimals:4},
-  {key:'BTC-USD',   label:'BTC',          unit:'$',    decimals:0},
-  {key:'^GSPC',     label:'S&P 500',      unit:'',     decimals:0},
-  {key:'^IXIC',     label:'Nasdaq',       unit:'',     decimals:0},
-  {key:'^IBEX',     label:'IBEX 35',      unit:'',     decimals:0},
-  {key:'^STOXX50E', label:'EuroStoxx 50', unit:'',     decimals:0},
-  {key:'URTH',      label:'MSCI World',   unit:'$',    decimals:2},
-  {key:'IEUR.L',    label:'MSCI Europe',  unit:'£',    decimals:2},
-  {key:'^FCHI',     label:'CAC 40',       unit:'',     decimals:0},
-  {key:'^GDAXI',    label:'DAX',          unit:'',     decimals:0},
-  {key:'^EURIBOR3M',label:'Euríbor 3M',   unit:'%',    decimals:3},
-];
-document.getElementById('markets').innerHTML=marketItems.map(m=>{
-  const p=prices[m.key];
-  const val=p?p.price.toLocaleString('es-ES',{minimumFractionDigits:m.decimals,maximumFractionDigits:m.decimals}):'—';
-  const chg=p?p.change24h:0;
-  return '<div class="card" style="padding:10px 16px;display:flex;flex-direction:column;gap:4px;flex:1;min-width:130px">'+
-    '<div style="font-size:.58rem;color:var(--dim);font-family:monospace;text-transform:uppercase;letter-spacing:1px">'+m.label+'</div>'+
-    '<div style="font-size:.95rem;font-weight:800">'+val+(m.unit?'<span style="font-size:.58rem;color:var(--dim);margin-left:2px">'+m.unit+'</span>':'')+'</div>'+
-    (p?'<span class="'+(chg>=0?'pos':'neg')+'" style="font-size:.68rem">'+(chg>=0?'▲':'▼')+' '+Math.abs(chg).toFixed(2)+'%</span>':'<span style="color:var(--dim);font-size:.68rem">sin datos</span>')+
-    '</div>';
-}).join('');
     document.getElementById('kpis').innerHTML='';
     document.getElementById('tbody').innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--dim)">Importa tu CSV para comenzar</td></tr>';
     document.getElementById('tfoot').innerHTML='';
     document.getElementById('filter-pills').innerHTML='';
     return;
   }
+
   const totalV=enriched.reduce((s,h)=>s+h.vA,0);
   const totalC=enriched.reduce((s,h)=>s+h.vC,0);
   const totalGan=enriched.reduce((s,h)=>s+h.ganAbs,0);
@@ -450,7 +454,6 @@ document.getElementById('markets').innerHTML=marketItems.map(m=>{
     '<td style="padding:12px 13px;font-weight:800;font-size:.94rem">'+fmtEUR(fV)+'</td>'+
     '<td style="padding:12px 13px"><div style="color:'+(fG>=0?'var(--green)':'var(--red)')+';font-family:monospace;font-weight:700;font-size:.82rem">'+fmtEUR(fG)+'</div>'+pctSpan(fC>0?(fG/fC)*100:0)+'</td></tr>';
 
-  // Donut
   const byTipo={};
   enriched.forEach(h=>{byTipo[h.tipo]=(byTipo[h.tipo]||0)+h.vA;});
   const donutData=Object.entries(byTipo).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({label:k,value:v,color:gm(k).color}));
@@ -488,7 +491,6 @@ document.getElementById('markets').innerHTML=marketItems.map(m=>{
       '<span style="font-size:.7rem;font-family:monospace;width:40px;text-align:right">'+pct.toFixed(1)+'%</span></div>';
   }).join('');
 }
-
 // ─── TABS / FILTERS ───────────────────────────────────────────────────────────
 function setTab(tab,btn){
   document.querySelectorAll('#tab-bar>.pill').forEach(b=>b.classList.remove('active'));
