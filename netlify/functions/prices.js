@@ -19,7 +19,7 @@ const ISIN_TO_YAHOO = {
 const TICKER_CURRENCY = {
   'FAE.MC':'EUR','ANA.MC':'EUR','ACX.MC':'EUR','EST.MC':'EUR',
   'KER.PA':'EUR','MC.PA':'EUR','P911_p.DE':'EUR','ZPRV.DE':'EUR','DFND.AS':'EUR',
-  'CIBR.L':'GBp','NATO.L':'GBp','VUSA.L':'GBp',
+  'CIBR.L': 'GBp', 'NATO.L': 'GBp', 'VUSA.L': 'GBp', 'ZEG.L': 'GBp',
   'LIFCO-B.ST':'SEK','PNG.V':'CAD',
 };
 
