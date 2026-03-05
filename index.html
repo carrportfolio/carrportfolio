@@ -565,6 +565,7 @@ function saveEdit(){
   });
   const saved = localStorage.getItem('portfolio_csv');
   loadData(saved || SAMPLE, !saved);
+  fetchMarkets();
   startCountdown();
 })();
 </script>
