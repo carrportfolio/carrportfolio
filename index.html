@@ -320,6 +320,9 @@ async function fetchPrices(hs){
     else if(t==='Crypto') byType.cryptos.push(h.ticker);
     else byType.tickers.push(h.ticker); // Acciones, ETFs, Pensiones
   });
+  ['GC=F','SI=F','EURUSD=X','BTC-USD','^GSPC','^IXIC','^IBEX','^STOXX50E','URTH','IEUR.L','^FCHI','^GDAXI','^EURIBOR3M'].forEach(t=>{
+  if(!seen.has(t)){ seen.add(t); byType.tickers.push(t); }
+});
 
   const params = new URLSearchParams({
     isins:   byType.isins.join(','),
