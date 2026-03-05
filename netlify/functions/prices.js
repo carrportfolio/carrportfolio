@@ -20,7 +20,19 @@ const TICKER_CURRENCY = {
   'FAE.MC':'EUR','ANA.MC':'EUR','ACX.MC':'EUR','EST.MC':'EUR',
   'KER.PA':'EUR','MC.PA':'EUR','P911_p.DE':'EUR','ZPRV.DE':'EUR','DFND.AS':'EUR',
   'CIBR.L': 'GBp', 'NATO.L': 'GBp', 'VUSA.L': 'GBp', 'ZEG.L': 'GBp',
-  'LIFCO-B.ST':'SEK','PNG.V':'CAD',
+  'LIFCO-B.ST':'SEK','PNG.V':'CAD','EURUSD=X': 'RAW',
+'GC=F': 'RAW',
+'SI=F': 'RAW',
+'BTC-USD': 'RAW',
+'^GSPC': 'RAW',
+'^IXIC': 'RAW',
+'^IBEX': 'RAW',
+'^STOXX50E': 'RAW',
+'URTH': 'RAW',
+'IEUR.L': 'RAW',
+'^FCHI': 'RAW',
+'^GDAXI': 'RAW',
+'^EURIBOR3M': 'RAW',
 };
 
 function fetchUrl(url, extraHeaders = {}) {
