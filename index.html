@@ -306,6 +306,21 @@ function enrich(hs){
 
 // ─── FETCH PRICES via Netlify Function ────────────────────────────────────────
 async function fetchPrices(hs){
+  async function fetchMarkets(){
+  const marketTickers = ['GC=F','SI=F','EURUSD=X','BTC-USD','^GSPC','^IXIC','^IBEX','^STOXX50E','URTH','IEUR.L','^FCHI','^GDAXI','^EURIBOR3M'];
+  const params = new URLSearchParams({ tickers: marketTickers.join(','), isins:'', cryptos:'' });
+  try {
+    const resp = await fetch('/.netlify/functions/prices?' + params);
+    if(!resp.ok) return;
+    const data = await resp.json();
+    if(data.prices){
+      Object.entries(data.prices).forEach(([k,v])=>{
+        if(v && typeof v.price==='number' && v.price>0) prices[k.toUpperCase()]=v;
+      });
+    }
+    render();
+  } catch(e) { console.error('markets error:', e); }
+}
   setStatus('<span class="spin">⟳</span> cargando precios...');
 
   const byType = {isins:[], tickers:[], cryptos:[]};
