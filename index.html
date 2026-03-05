@@ -304,9 +304,8 @@ function enrich(hs){
   });
 }
 
-// ─── FETCH PRICES via Netlify Function ────────────────────────────────────────
-async function fetchPrices(hs){
-  async function fetchMarkets(){
+// ─── FETCH MARKETS (separado para no sobrecargar la función) ──────────────────
+async function fetchMarkets(){
   const marketTickers = ['GC=F','SI=F','EURUSD=X','BTC-USD','^GSPC','^IXIC','^IBEX','^STOXX50E','URTH','IEUR.L','^FCHI','^GDAXI','^EURIBOR3M'];
   const params = new URLSearchParams({ tickers: marketTickers.join(','), isins:'', cryptos:'' });
   try {
@@ -321,11 +320,12 @@ async function fetchPrices(hs){
     render();
   } catch(e) { console.error('markets error:', e); }
 }
-  setStatus('<span class="spin">⟳</span> cargando precios...');
 
+// ─── FETCH PRICES via Netlify Function ────────────────────────────────────────
+async function fetchPrices(hs){
+  setStatus('<span class="spin">⟳</span> cargando precios...');
   const byType = {isins:[], tickers:[], cryptos:[]};
   const seen = new Set();
-
   hs.filter(h=>normTipo(h.tipo)!=='Cash'&&h.ticker&&h.ticker.trim()).forEach(h=>{
     const key=h.ticker.toUpperCase();
     if(seen.has(key)) return;
@@ -333,46 +333,36 @@ async function fetchPrices(hs){
     const t=normTipo(h.tipo);
     if(t==='Fondo') byType.isins.push(h.ticker);
     else if(t==='Crypto') byType.cryptos.push(h.ticker);
-    else byType.tickers.push(h.ticker); // Acciones, ETFs, Pensiones
+    else byType.tickers.push(h.ticker);
   });
-  ['GC=F','SI=F','EURUSD=X','BTC-USD','^GSPC','^IXIC','^IBEX','^STOXX50E','URTH','IEUR.L','^FCHI','^GDAXI','^EURIBOR3M'].forEach(t=>{
-  if(!seen.has(t)){ seen.add(t); byType.tickers.push(t); }
-});
-
   const params = new URLSearchParams({
     isins:   byType.isins.join(','),
     tickers: byType.tickers.join(','),
     cryptos: byType.cryptos.join(','),
   });
-
   try {
     const resp = await fetch('/.netlify/functions/prices?' + params);
     if(!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
-
     if(data.usdEur) usdEur = data.usdEur;
     if(data.fxRates) fxRates = data.fxRates;
-
     if(data.prices){
       Object.entries(data.prices).forEach(([k,v])=>{
         if(v&&typeof v.price==='number'&&v.price>0) prices[k.toUpperCase()]=v;
       });
     }
-
     const found = Object.keys(data.prices||{}).length;
     const failed = Object.keys(data.errors||{}).length;
-
     document.getElementById('last-update').textContent = new Date().toLocaleTimeString('es-ES');
     setStatus('<span style="color:var(--green)">✓ '+found+' precios</span>'+(failed?' <span style="color:var(--amber)">'+failed+' sin datos</span>':''));
     setTimeout(()=>setStatus('<span style="color:var(--dimmer)">↺ '+countdown+'s</span>'),4000);
-
   } catch(e) {
     console.error('fetch error:', e);
     setStatus('<span style="color:var(--red)">⚠ Error: '+e.message+'</span>');
   }
+  fetchMarkets();
   render();
 }
-
 // ─── RENDER ───────────────────────────────────────────────────────────────────
 function render(){
   const enriched=enrich(holdings);
