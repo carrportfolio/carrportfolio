@@ -1,38 +1,56 @@
-// netlify/functions/prices.js — v2 con conversión CAD/SEK/GBp/USD
+// netlify/functions/prices.js
 const https = require('https');
 const http = require('http');
 
 const ISIN_TO_YAHOO = {
-  'ES0134950F36': 'FAE.MC', 'ES0125220311': 'ANA.MC', 'ES0132105018': 'ACX.MC',
-  'ES0105687000': 'EST.MC', 'FR0000121485': 'KER.PA', 'FR0000121014': 'MC.PA',
-  'DE000PAG9113': 'P911_p.DE', 'SE0015949201': 'LIFCO-B.ST',
-  'US6877931096': 'OSCR', 'US0044685008': 'ACLS', 'US01609W1027': 'BABA',
-  'US7223041028': 'PDD', 'US02079K3059': 'GOOGL', 'US0231351067': 'AMZN',
-  'US0378331005': 'AAPL', 'US0381692070': 'APLD', 'US00217D1000': 'ASTS',
-  'CA06849F1080': 'GOLD', 'CA13321L1085': 'CCJ', 'US21036P1084': 'STZ',
-  'NL0010556684': 'XPRO', 'BMG9456A1009': 'GLNG', 'US44862P2083': 'HYMC',
-  'US4581401001': 'INTC', 'US49177J1025': 'KVUE', 'CA50077N1024': 'PNG.V',
-  'IE00BF16M727': 'CIBR.L', 'IE000OJ5TQP4': 'NATO.L', 'IE00BSPLC413': 'ZPRV.DE',
-  'IE000YYE6WK5': 'DFND.AS', 'IE00B3XXRP09': 'VUSA.L',
+  'ES0134950F36': 'FAE.MC',
+  'ES0125220311': 'ANA.MC',
+  'ES0132105018': 'ACX.MC',
+  'ES0105687000': 'EST.MC',
+  'FR0000121485': 'KER.PA',
+  'FR0000121014': 'MC.PA',
+  'DE000PAG9113': 'PAH3.DE',
+  'SE0015949201': 'LIFCO-B.ST',
+  'US6877931096': 'OSCR',
+  'US0044685008': 'ACLS',
+  'US01609W1027': 'BABA',
+  'US7223041028': 'PDD',
+  'US02079K3059': 'GOOGL',
+  'US0231351067': 'AMZN',
+  'US0378331005': 'AAPL',
+  'US0381692070': 'APLD',
+  'US00217D1000': 'ASTS',
+  'CA06849F1080': 'GOLD',
+  'CA13321L1085': 'CCJ',
+  'US21036P1084': 'STZ',
+  'NL0010556684': 'XPRO',
+  'BMG9456A1009': 'GLNG',
+  'US44862P2083': 'HYMC',
+  'US4581401001': 'INTC',
+  'US49177J1025': 'KVUE',
+  'CA50077N1024': 'PNG.V',
+  'IE00BF16M727': 'CIBR.L',
+  'IE000OJ5TQP4': 'NATO.L',
+  'IE00BSPLC413': 'ZPRV.DE',
+  'IE000YYE6WK5': 'DFND.AS',
+  'IE00B3XXRP09': 'VUSA.L',
 };
 
+// EUR = ya en euros, GBp = peniques (÷100 luego ×GBP/EUR), RAW = sin conversión, USD/SEK/CAD = ×fxRate
 const TICKER_CURRENCY = {
-  'FAE.MC':'EUR','ANA.MC':'EUR','ACX.MC':'EUR','EST.MC':'EUR',
-  'KER.PA':'EUR','MC.PA':'EUR','P911_p.DE':'EUR','ZPRV.DE':'EUR','DFND.AS':'EUR',
-  'CIBR.L': 'GBp', 'NATO.L': 'GBp', 'VUSA.L': 'GBp', 'ZEG.L': 'GBp',
-  'LIFCO-B.ST':'SEK','PNG.V':'CAD','EURUSD=X': 'RAW',
-'GC=F': 'RAW',
-'SI=F': 'RAW',
-'BTC-USD': 'RAW',
-'^GSPC': 'RAW',
-'^IXIC': 'RAW',
-'^IBEX': 'RAW',
-'^STOXX50E': 'RAW',
-'URTH': 'RAW',
-'IEUR.L': 'RAW',
-'^FCHI': 'RAW',
-'^GDAXI': 'RAW',
-'^EURIBOR3M': 'RAW',
+  // EUR
+  'FAE.MC':'EUR', 'ANA.MC':'EUR', 'ACX.MC':'EUR', 'EST.MC':'EUR',
+  'KER.PA':'EUR', 'MC.PA':'EUR', 'PAH3.DE':'EUR', 'ZPRV.DE':'EUR', 'DFND.AS':'EUR',
+  // GBp (peniques)
+  'CIBR.L':'GBp', 'NATO.L':'GBp', 'VUSA.L':'GBp', 'ZEG.L':'GBp',
+  // SEK
+  'LIFCO-B.ST':'SEK',
+  // CAD
+  'PNG.V':'CAD',
+  // RAW (sin conversión — índices, divisas, materias primas)
+  'EURUSD=X':'RAW', 'GC=F':'RAW', 'SI=F':'RAW', 'BTC-USD':'RAW',
+  '^GSPC':'RAW', '^IXIC':'RAW', '^IBEX':'RAW', '^STOXX50E':'RAW',
+  'URTH':'RAW', 'IEUR.L':'RAW', '^FCHI':'RAW', '^GDAXI':'RAW', '^EURIBOR3M':'RAW',
 };
 
 function fetchUrl(url, extraHeaders = {}) {
@@ -80,7 +98,7 @@ async function fetchFTFund(isin) {
     const m1 = res.body.match(/"price"\s*:\s*\{\s*"value"\s*:\s*([\d.]+)/);
     if (m1) return parseFloat(m1[1]);
     const m2 = res.body.match(/class="mod-ui-data-list__value"[^>]*>\s*([\d,\.]+)/);
-    if (m2) { const v = parseFloat(m2[1].replace(/,/g,'')); if (!isNaN(v) && v > 0) return v; }
+    if (m2) { const v = parseFloat(m2[1].replace(/,/g, '')); if (!isNaN(v) && v > 0) return v; }
     const m3 = res.body.match(/"lastPrice"\s*:\s*"?([\d.]+)"?/);
     if (m3) { const v = parseFloat(m3[1]); if (!isNaN(v) && v > 0) return v; }
     return null;
@@ -99,9 +117,12 @@ async function fetchCrypto(coin) {
 }
 
 async function fetchFXRates() {
-  const rates = { EUR:1, USD:0.92, GBP:1.17, SEK:0.087, CAD:0.68 };
+  const rates = { EUR: 1, USD: 0.92, GBP: 1.17, SEK: 0.087, CAD: 0.68 };
   await Promise.all([['USD','EURUSD=X'],['GBP','EURGBP=X'],['SEK','EURSEK=X'],['CAD','EURCAD=X']].map(async ([cur, ticker]) => {
-    try { const d = await fetchYahoo(ticker); if (d && d.price) rates[cur] = 1 / d.price; } catch(e) {}
+    try {
+      const d = await fetchYahoo(ticker);
+      if (d && d.price) rates[cur] = 1 / d.price;
+    } catch (e) {}
   }));
   return rates;
 }
@@ -109,6 +130,7 @@ async function fetchFXRates() {
 exports.handler = async (event) => {
   const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers, body: '' };
+
   try {
     const p = event.queryStringParameters || {};
     const isins   = (p.isins   || '').split(',').filter(Boolean);
@@ -118,40 +140,68 @@ exports.handler = async (event) => {
 
     const fxPromise = fetchFXRates();
 
+    // Fondos via Financial Times
     for (let i = 0; i < isins.length; i += BATCH) {
-      await Promise.all(isins.slice(i, i+BATCH).map(async isin => {
+      await Promise.all(isins.slice(i, i + BATCH).map(async isin => {
         const price = await fetchFTFund(isin);
-        if (price !== null && price > 0) results[isin] = { price, change24h:0, source:'Financial Times', currency:'EUR' };
-        else errors[isin] = 'no data';
+        if (price !== null && price > 0) {
+          results[isin] = { price, change24h: 0, source: 'Financial Times', currency: 'EUR' };
+        } else {
+          errors[isin] = 'no data';
+        }
       }));
       if (i + BATCH < isins.length) await new Promise(r => setTimeout(r, 300));
     }
 
     const fxRates = await fxPromise;
-    const resolved = tickers.map(t => ({ original:t, yahoo: ISIN_TO_YAHOO[t.toUpperCase()] || t }));
 
+    // Acciones, ETFs, índices, divisas, materias primas via Yahoo
+    const resolved = tickers.map(t => ({ original: t, yahoo: ISIN_TO_YAHOO[t.toUpperCase()] || t }));
     for (let i = 0; i < resolved.length; i += BATCH) {
-      await Promise.all(resolved.slice(i, i+BATCH).map(async ({ original, yahoo }) => {
+      await Promise.all(resolved.slice(i, i + BATCH).map(async ({ original, yahoo }) => {
         const data = await fetchYahoo(yahoo);
         if (data) {
-          const cur = TICKER_CURRENCY[yahoo] || 'USD';
-          let price = cur === 'GBp' ? (data.price / 100) * fxRates.GBP
-                    : cur !== 'EUR' ? data.price * (fxRates[cur] || 1)
-                    : data.price;
-          results[original] = { price, change24h: data.change24h, source:'Yahoo Finance', currency:cur, originalPrice:data.price };
-        } else errors[original] = 'no data';
+          const currency = TICKER_CURRENCY[yahoo] || 'USD';
+          let priceInEUR;
+          if (currency === 'RAW') {
+            priceInEUR = data.price;
+          } else if (currency === 'GBp') {
+            priceInEUR = (data.price / 100) * fxRates['GBP'];
+          } else if (currency === 'EUR') {
+            priceInEUR = data.price;
+          } else {
+            priceInEUR = data.price * (fxRates[currency] || 1);
+          }
+          results[original] = {
+            price: priceInEUR,
+            change24h: data.change24h,
+            source: 'Yahoo Finance',
+            currency,
+            originalPrice: data.price,
+          };
+        } else {
+          errors[original] = 'no data';
+        }
       }));
     }
 
-    const CRYPTO_MAP = { BTC:'bitcoin', ETH:'ethereum', SOL:'solana' };
+    // Crypto via CoinGecko
+    const CRYPTO_MAP = { 'BTC': 'bitcoin', 'ETH': 'ethereum', 'SOL': 'solana' };
     for (const c of cryptos) {
       const data = await fetchCrypto(CRYPTO_MAP[c.toUpperCase()] || c.toLowerCase());
-      if (data) results[c] = { price:data.price, change24h:data.change24h, source:'CoinGecko', currency:'EUR' };
-      else errors[c] = 'no data';
+      if (data) {
+        results[c] = { price: data.price, change24h: data.change24h, source: 'CoinGecko', currency: 'EUR' };
+      } else {
+        errors[c] = 'no data';
+      }
     }
 
-    return { statusCode:200, headers, body: JSON.stringify({ prices:results, errors, fxRates, usdEur:fxRates.USD, timestamp:new Date().toISOString() }) };
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify({ prices: results, errors, fxRates, usdEur: fxRates.USD, timestamp: new Date().toISOString() })
+    };
   } catch (e) {
-    return { statusCode:500, headers, body: JSON.stringify({ error: e.message }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
   }
 };
