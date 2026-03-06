@@ -79,8 +79,8 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     <button class="btn btn-ghost" onclick="refresh()">↺ Actualizar</button>
     <button class="btn btn-primary" id="btn-import">+ Importar CSV</button>
   </div>
-  
 </div>
+
 <div id="main">
   <div id="kpis"></div>
   <div id="markets" style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap"></div>
@@ -128,34 +128,27 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     </div>
     <div class="card" style="padding:24px;margin-bottom:12px">
       <div class="alloc-title" style="margin-bottom:12px">📈 Gráfico</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bot
-  <!-- Datos macro -->
-  <div class="card" style="padding:24px;margin-bottom:12px">
-    <div class="alloc-title">🏛 Tipos de interés & macro</div>
-    <div id="macro-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px"></div>
-  </div>
-
-  <!-- Noticias RSS -->
-  <div class="card" style="padding:24px">
-    <div class="alloc-title">📰 Noticias económicas</div>
-    <div id="news-list"><div style="color:var(--dim);font-size:.8rem;text-align:center;padding:40px">Cargando noticias...</div></div>
-  </div>
-
-</div>
-    <div id="alloc">
-      <div class="card alloc-card">
-        <div class="alloc-title">Distribución por Tipo</div>
-        <div class="donut-wrap">
-          <canvas id="donut" width="140" height="140"></canvas>
-          <div class="legend" id="legend"></div>
-        </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="chart-pills">
+        <button class="pill active" onclick="loadChart('SP:SPX',this)">S&P 500</button>
+        <button class="pill" onclick="loadChart('NASDAQ:NDX',this)">Nasdaq</button>
+        <button class="pill" onclick="loadChart('BME:IBC',this)">IBEX 35</button>
+        <button class="pill" onclick="loadChart('EURONEXT:CAC40',this)">CAC 40</button>
+        <button class="pill" onclick="loadChart('XETR:DAX',this)">DAX</button>
+        <button class="pill" onclick="loadChart('COMEX:GC1!',this)">Oro</button>
+        <button class="pill" onclick="loadChart('BITSTAMP:BTCUSD',this)">BTC</button>
       </div>
-      <div class="card alloc-card">
-        <div class="alloc-title">Top activos por valor</div>
-        <div id="top-list" style="max-height:360px;overflow-y:auto"></div>
-      </div>
+      <div id="tv-chart" style="height:400px;border-radius:10px;overflow:hidden"></div>
+    </div>
+    <div class="card" style="padding:24px;margin-bottom:12px">
+      <div class="alloc-title">🏛 Tipos de interés & macro</div>
+      <div id="macro-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px"></div>
+    </div>
+    <div class="card" style="padding:24px">
+      <div class="alloc-title">📰 Noticias económicas</div>
+      <div id="news-list"><div style="color:var(--dim);font-size:.8rem;text-align:center;padding:40px">Cargando noticias...</div></div>
     </div>
   </div>
+
 </div>
 
 <!-- Import Modal -->
@@ -195,7 +188,6 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     </div>
   </div>
 </div>
-
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const REFRESH_MS = 300000; // 5 min
