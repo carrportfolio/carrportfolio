@@ -87,6 +87,7 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   <div id="tab-bar">
     <button class="pill active" onclick="setTab('portfolio',this)">📊 Portfolio</button>
     <button class="pill" onclick="setTab('allocation',this)">🥧 Distribución</button>
+    <button class="pill" onclick="setTab('news',this)">📰 News</button>
     <div id="filter-pills"></div>
   </div>
   <div id="portfolio-view">
@@ -103,6 +104,12 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     </div>
   </div>
   <div id="allocation-view" style="display:none">
+    <div id="news-view" style="display:none">
+  <div class="card" style="padding:24px">
+    <div style="font-size:.6rem;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:16px;font-family:monospace">Noticias económicas</div>
+    <div id="news-list"><div style="color:var(--dim);font-size:.8rem;text-align:center;padding:40px">Cargando noticias...</div></div>
+  </div>
+</div>
     <div id="alloc">
       <div class="card alloc-card">
         <div class="alloc-title">Distribución por Tipo</div>
