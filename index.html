@@ -104,11 +104,41 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     </div>
   </div>
   <div id="allocation-view" style="display:none">
-    <div id="news-view" style="display:none">
+ <div id="news-view" style="display:none">
+
+  <!-- Mapa de calor de índices -->
+  <div class="card" style="padding:24px;margin-bottom:12px">
+    <div class="alloc-title">🌡 Mercados globales — mapa de calor</div>
+    <div id="heatmap" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px"></div>
+  </div>
+
+  <!-- Gráfico TradingView -->
+  <div class="card" style="padding:24px;margin-bottom:12px">
+    <div class="alloc-title" style="margin-bottom:12px">📈 Gráfico</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="chart-pills">
+      <button class="pill active" onclick="loadChart('SP:SPX',this)">S&P 500</button>
+      <button class="pill" onclick="loadChart('NASDAQ:NDX',this)">Nasdaq</button>
+      <button class="pill" onclick="loadChart('BME:IBC',this)">IBEX 35</button>
+      <button class="pill" onclick="loadChart('EURONEXT:CAC40',this)">CAC 40</button>
+      <button class="pill" onclick="loadChart('XETR:DAX',this)">DAX</button>
+      <button class="pill" onclick="loadChart('COMEX:GC1!',this)">Oro</button>
+      <button class="pill" onclick="loadChart('BITSTAMP:BTCUSD',this)">BTC</button>
+    </div>
+    <div id="tv-chart" style="height:400px;border-radius:10px;overflow:hidden"></div>
+  </div>
+
+  <!-- Datos macro -->
+  <div class="card" style="padding:24px;margin-bottom:12px">
+    <div class="alloc-title">🏛 Tipos de interés & macro</div>
+    <div id="macro-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px"></div>
+  </div>
+
+  <!-- Noticias RSS -->
   <div class="card" style="padding:24px">
-    <div style="font-size:.6rem;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:16px;font-family:monospace">Noticias económicas</div>
+    <div class="alloc-title">📰 Noticias económicas</div>
     <div id="news-list"><div style="color:var(--dim);font-size:.8rem;text-align:center;padding:40px">Cargando noticias...</div></div>
   </div>
+
 </div>
     <div id="alloc">
       <div class="card alloc-card">
@@ -529,7 +559,82 @@ function setTab(tab,btn){
   document.getElementById('allocation-view').style.display=tab==='allocation'?'':'none';
   document.getElementById('news-view').style.display=tab==='news'?'':'none';
   document.getElementById('filter-pills').style.display=tab==='portfolio'?'flex':'none';
-  if(tab==='news') fetchNews();
+  if(tab==='news'){ renderHeatmap(); renderMacro(); fetchNews(); loadChart('SP:SPX'); }
+}
+
+function renderHeatmap(){
+  const items=[
+    {key:'^GSPC',label:'S&P 500'},{key:'^IXIC',label:'Nasdaq'},
+    {key:'^IBEX',label:'IBEX 35'},{key:'^STOXX50E',label:'EuroStoxx'},
+    {key:'^FCHI',label:'CAC 40'},{key:'^GDAXI',label:'DAX'},
+    {key:'GC=F',label:'Oro'},{key:'SI=F',label:'Plata'},
+    {key:'BTC-USD',label:'BTC'},{key:'EURUSD=X',label:'EUR/USD'},
+    {key:'URTH',label:'MSCI World'},{key:'IEUR.L',label:'MSCI Europe'},
+  ];
+  document.getElementById('heatmap').innerHTML=items.map(m=>{
+    const p=prices[m.key];
+    const chg=p?p.change24h:null;
+    const intensity=chg!=null?Math.min(Math.abs(chg)/3,1):0;
+    const bg=chg==null?'var(--border)':chg>=0
+      ?`rgba(52,211,153,${0.15+intensity*0.5})`
+      :`rgba(248,113,113,${0.15+intensity*0.5})`;
+    const val=p?p.price.toLocaleString('es-ES',{maximumFractionDigits:2}):'—';
+    return '<div style="background:'+bg+';border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:4px">'+
+      '<div style="font-size:.58rem;color:var(--muted);font-family:monospace;text-transform:uppercase">'+m.label+'</div>'+
+      '<div style="font-size:.9rem;font-weight:800">'+val+'</div>'+
+      (chg!=null?'<div style="font-size:.7rem;font-weight:700;color:'+(chg>=0?'var(--green)':'var(--red)')+'">'+
+      (chg>=0?'▲':'▼')+' '+Math.abs(chg).toFixed(2)+'%</div>':'<div style="font-size:.7rem;color:var(--dim)">sin datos</div>')+
+      '</div>';
+  }).join('');
+}
+
+function renderMacro(){
+  const macro=[
+    {label:'Fed Funds Rate', val:'5.25–5.50%', sub:'EE.UU.', color:'var(--blue)'},
+    {label:'Tipo BCE',       val:'4.50%',       sub:'Eurozona', color:'var(--purple)'},
+    {label:'Tipo BoE',       val:'5.25%',       sub:'Reino Unido', color:'var(--amber)'},
+    {label:'Euríbor 12M',    val:prices['^EURIBOR3M']?prices['^EURIBOR3M'].price.toFixed(3)+'%':'—', sub:'3 meses', color:'var(--green)'},
+    {label:'EUR/USD',        val:prices['EURUSD=X']?prices['EURUSD=X'].price.toFixed(4):'—', sub:'Tipo de cambio', color:'var(--text)'},
+    {label:'VIX',            val:prices['^VIX']?prices['^VIX'].price.toFixed(2):'—', sub:'Volatilidad S&P', color:'var(--red)'},
+  ];
+  document.getElementById('macro-grid').innerHTML=macro.map(m=>
+    '<div class="card" style="padding:14px;border:1px solid var(--border)">'+
+    '<div style="font-size:.58rem;color:var(--dim);font-family:monospace;text-transform:uppercase;letter-spacing:1px">'+m.label+'</div>'+
+    '<div style="font-size:1.1rem;font-weight:800;margin:4px 0;color:'+m.color+'">'+m.val+'</div>'+
+    '<div style="font-size:.65rem;color:var(--muted);font-family:monospace">'+m.sub+'</div>'+
+    '</div>'
+  ).join('');
+}
+
+let tvWidget=null;
+function loadChart(symbol, btn){
+  if(btn){ document.querySelectorAll('#chart-pills .pill').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
+  document.getElementById('tv-chart').innerHTML=
+    '<iframe src="https://s.tradingview.com/widgetembed/?frameElementId=tv&symbol='+encodeURIComponent(symbol)+
+    '&interval=D&hidesidetoolbar=1&hidetoptoolbar=0&symboledit=1&saveimage=0&toolbarbg=0d1117&studies=[]'+
+    '&theme=dark&style=1&timezone=Europe%2FMadrid&withdateranges=1&showpopupbutton=0&studies_overrides={}'+
+    '&overrides={}&enabled_features=[]&disabled_features=[]&locale=es" '+
+    'style="width:100%;height:400px;border:none;border-radius:10px"></iframe>';
+}
+
+async function fetchNews(){
+  try {
+    const resp = await fetch('/.netlify/functions/news');
+    if(!resp.ok) return;
+    const data = await resp.json();
+    document.getElementById('news-list').innerHTML = data.items.map(item =>
+      '<div style="border-bottom:1px solid var(--border);padding:14px 0;display:flex;flex-direction:column;gap:5px">'+
+      '<a href="'+item.link+'" target="_blank" style="font-size:.85rem;font-weight:700;color:var(--text);text-decoration:none;line-height:1.4">'+item.title+'</a>'+
+      '<div style="display:flex;gap:10px;align-items:center">'+
+      '<span style="font-size:.65rem;color:var(--dim);font-family:monospace">'+item.date+'</span>'+
+      '<span style="font-size:.65rem;color:var(--blue);font-family:monospace">'+item.source+'</span>'+
+      '</div>'+
+      (item.summary?'<div style="font-size:.75rem;color:var(--muted);line-height:1.5">'+item.summary+'</div>':'')+
+      '</div>'
+    ).join('');
+  } catch(e) {
+    document.getElementById('news-list').innerHTML='<div style="color:var(--red);font-size:.8rem">Error cargando noticias</div>';
+  }
 }
 // ─── COUNTDOWN ────────────────────────────────────────────────────────────────
 function startCountdown(){
