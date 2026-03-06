@@ -327,6 +327,29 @@ async function fetchMarkets(){
     render();
   } catch(e) { console.error('markets error:', e); }
 }
+  async function fetchNews(){
+  const feeds = [
+    'https://feeds.bloomberg.com/markets/news.rss',
+    'https://www.expansion.com/rss/mercados.xml',
+    'https://cincodias.elpais.com/seccion/rss/mercados/',
+  ];
+  const params = new URLSearchParams({ rss: feeds[1] });
+  try {
+    const resp = await fetch('/.netlify/functions/news?' + params);
+    if(!resp.ok) return;
+    const data = await resp.json();
+    document.getElementById('news-list').innerHTML = data.items.map(item =>
+      '<div style="border-bottom:1px solid var(--border);padding:14px 0;display:flex;flex-direction:column;gap:5px">'+
+      '<a href="'+item.link+'" target="_blank" style="font-size:.85rem;font-weight:700;color:var(--text);text-decoration:none;line-height:1.4">'+item.title+'</a>'+
+      '<div style="display:flex;gap:10px;align-items:center">'+
+      '<span style="font-size:.65rem;color:var(--dim);font-family:monospace">'+item.date+'</span>'+
+      '<span style="font-size:.65rem;color:var(--blue);font-family:monospace">'+item.source+'</span>'+
+      '</div>'+
+      (item.summary?'<div style="font-size:.75rem;color:var(--muted);line-height:1.5">'+item.summary+'</div>':'')+
+      '</div>'
+    ).join('');
+  } catch(e) { document.getElementById('news-list').innerHTML='<div style="color:var(--red);font-size:.8rem">Error cargando noticias</div>'; }
+}
 
 // ─── FETCH PRICES via Netlify Function ────────────────────────────────────────
 async function fetchPrices(hs){
@@ -504,10 +527,10 @@ function setTab(tab,btn){
   btn.classList.add('active');
   document.getElementById('portfolio-view').style.display=tab==='portfolio'?'':'none';
   document.getElementById('allocation-view').style.display=tab==='allocation'?'':'none';
+  document.getElementById('news-view').style.display=tab==='news'?'':'none';
   document.getElementById('filter-pills').style.display=tab==='portfolio'?'flex':'none';
+  if(tab==='news') fetchNews();
 }
-function setFilter(t){ filterTipo=t; render(); }
-
 // ─── COUNTDOWN ────────────────────────────────────────────────────────────────
 function startCountdown(){
   clearInterval(ivRefresh); clearInterval(ivTick);
