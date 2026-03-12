@@ -552,31 +552,92 @@ function setTab(tab,btn){
 }
 
 function renderHeatmap(){
-  const items=[
-    {key:'^GSPC',label:'S&P 500'},{key:'^IXIC',label:'Nasdaq'},
-    {key:'^IBEX',label:'IBEX 35'},{key:'^STOXX50E',label:'EuroStoxx'},
-    {key:'^FCHI',label:'CAC 40'},{key:'^GDAXI',label:'DAX'},
-    {key:'GC=F',label:'Oro'},{key:'SI=F',label:'Plata'},
-    {key:'BTC-USD',label:'BTC'},{key:'EURUSD=X',label:'EUR/USD'},
-    {key:'URTH',label:'MSCI World'},{key:'IEUR.L',label:'MSCI Europe'},
-  ];
-  document.getElementById('heatmap').innerHTML=items.map(m=>{
-    const p=prices[m.key];
-    const chg=p?p.change24h:null;
-    const intensity=chg!=null?Math.min(Math.abs(chg)/3,1):0;
-    const bg=chg==null?'var(--border)':chg>=0
-      ?`rgba(52,211,153,${0.15+intensity*0.5})`
-      :`rgba(248,113,113,${0.15+intensity*0.5})`;
-    const val=p?p.price.toLocaleString('es-ES',{maximumFractionDigits:2}):'—';
-    return '<div style="background:'+bg+';border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:4px">'+
-      '<div style="font-size:.58rem;color:var(--muted);font-family:monospace;text-transform:uppercase">'+m.label+'</div>'+
-      '<div style="font-size:.9rem;font-weight:800">'+val+'</div>'+
-      (chg!=null?'<div style="font-size:.7rem;font-weight:700;color:'+(chg>=0?'var(--green)':'var(--red)')+'">'+
-      (chg>=0?'▲':'▼')+' '+Math.abs(chg).toFixed(2)+'%</div>':'<div style="font-size:.7rem;color:var(--dim)">sin datos</div>')+
-      '</div>';
-  }).join('');
+const MARKET_ITEMS = [
+  {key:'^GSPC',     label:'S&P 500',      region:'EE.UU.',    weight:9},
+  {key:'^IXIC',     label:'Nasdaq',       region:'EE.UU.',    weight:8},
+  {key:'^STOXX50E', label:'EuroStoxx 50', region:'Europa',    weight:7},
+  {key:'^GDAXI',    label:'DAX',          region:'Europa',    weight:6},
+  {key:'^FCHI',     label:'CAC 40',       region:'Europa',    weight:5},
+  {key:'^IBEX',     label:'IBEX 35',      region:'España',    weight:4},
+  {key:'URTH',      label:'MSCI World',   region:'Global',    weight:7},
+  {key:'IEUR.L',    label:'MSCI Europe',  region:'Global',    weight:5},
+  {key:'GC=F',      label:'Oro',          region:'Materias',  weight:6},
+  {key:'SI=F',      label:'Plata',        region:'Materias',  weight:4},
+  {key:'BTC-USD',   label:'Bitcoin',      region:'Crypto',    weight:5},
+  {key:'EURUSD=X',  label:'EUR/USD',      region:'Divisas',   weight:5},
+  {key:'^EURIBOR3M',label:'Euríbor 3M',   region:'Tipos',     weight:3},
+];
+
+function setMarketView(view, btn){
+  document.querySelectorAll('#view-table,#view-heat').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('market-table').style.display = view==='table' ? '' : 'none';
+  document.getElementById('market-heat').style.display  = view==='heat'  ? '' : 'none';
 }
 
+function renderHeatmap(){
+  // ── TABLA ──
+  const rows = MARKET_ITEMS.map(m => {
+    const p = prices[m.key];
+    const chg = p ? p.change24h : null;
+    const val = p ? p.price.toLocaleString('es-ES',{maximumFractionDigits:2}) : '—';
+    const chgColor = chg == null ? 'var(--dim)' : chg >= 0 ? 'var(--green)' : 'var(--red)';
+    const barW = chg != null ? Math.min(Math.abs(chg) / 3 * 100, 100) : 0;
+    const barColor = chg != null && chg >= 0 ? 'var(--green)' : 'var(--red)';
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:9px 12px;font-size:.75rem;color:var(--muted);font-family:monospace;width:90px">${m.region}</td>
+      <td style="padding:9px 12px;font-size:.82rem;font-weight:700">${m.label}</td>
+      <td style="padding:9px 12px;font-family:monospace;font-size:.82rem;text-align:right">${val}</td>
+      <td style="padding:9px 12px;text-align:right;width:80px">
+        ${chg!=null?`<span style="color:${chgColor};font-family:monospace;font-size:.78rem;font-weight:700">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`:'<span style="color:var(--dim)">—</span>'}
+      </td>
+      <td style="padding:9px 12px;width:80px">
+        <div style="height:4px;background:var(--border);border-radius:4px;overflow:hidden">
+          <div style="width:${barW}%;height:100%;background:${barColor};border-radius:4px;transition:width .3s"></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('market-table').innerHTML =
+    `<table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:left">REGIÓN</th>
+        <th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:left">MERCADO</th>
+        <th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:right">PRECIO</th>
+        <th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:right">VAR. 24H</th>
+        <th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  // ── MAPA DE CALOR ──
+  const total = MARKET_ITEMS.reduce((s,m) => s + m.weight, 0);
+  const blocks = MARKET_ITEMS.map(m => {
+    const p = prices[m.key];
+    const chg = p ? p.change24h : null;
+    const val = p ? p.price.toLocaleString('es-ES',{maximumFractionDigits:2}) : '—';
+    const intensity = chg != null ? Math.min(Math.abs(chg) / 4, 1) : 0;
+    const bg = chg == null ? '#1a2235'
+      : chg >= 0 ? `rgba(52,211,153,${0.15 + intensity * 0.7})`
+                 : `rgba(248,113,113,${0.15 + intensity * 0.7})`;
+    const textColor = chg == null ? 'var(--dim)' : Math.abs(chg) > 1.5 ? '#fff' : 'var(--text)';
+    const pct = (m.weight / total * 100).toFixed(1);
+    return `<div style="flex:${m.weight};min-width:80px;min-height:${m.weight > 6 ? 100 : 70}px;
+      background:${bg};border-radius:8px;display:flex;flex-direction:column;
+      align-items:center;justify-content:center;gap:3px;padding:8px;cursor:default;
+      border:1px solid rgba(255,255,255,0.04);transition:all .2s"
+      onmouseover="this.style.filter='brightness(1.2)'" onmouseout="this.style.filter=''">
+      <div style="font-size:.62rem;color:${textColor};opacity:.7;font-family:monospace;text-align:center">${m.region}</div>
+      <div style="font-size:.78rem;font-weight:800;color:${textColor};text-align:center;line-height:1.2">${m.label}</div>
+      <div style="font-size:.72rem;font-family:monospace;color:${textColor}">${val}</div>
+      ${chg!=null?`<div style="font-size:.7rem;font-weight:700;color:${textColor}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</div>`:''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('market-heat').innerHTML =
+    `<div style="display:flex;flex-wrap:wrap;gap:6px">${blocks}</div>`;
+}  
 function renderMacro(){
   const macro=[
     {label:'Fed Funds Rate', val:'5.25–5.50%', sub:'EE.UU.', color:'var(--blue)'},
