@@ -121,17 +121,29 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     </div>
   </div>
 
- <div class="card" style="padding:24px;margin-bottom:12px">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-    <div class="alloc-title" style="margin-bottom:0">🌍 Mercados globales</div>
-    <div style="display:flex;gap:6px">
-      <button class="pill active" id="view-table" onclick="setMarketView('table',this)">≡ Tabla</button>
-      <button class="pill" id="view-heat" onclick="setMarketView('heat',this)">⬛ Mapa</button>
+  <div id="news-view" style="display:none">
+    <div class="card" style="padding:24px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div class="alloc-title" style="margin-bottom:0">🌍 Mercados globales</div>
+        <div style="display:flex;gap:6px">
+          <button class="pill active" id="view-table" onclick="setMarketView('table',this)">≡ Tabla</button>
+          <button class="pill" id="view-heat" onclick="setMarketView('heat',this)">⬛ Mapa</button>
+        </div>
+      </div>
+      <div id="market-table"></div>
+      <div id="market-heat" style="display:none"></div>
     </div>
-  </div>
-  <div id="market-table"></div>
-  <div id="market-heat" style="display:none"></div>
-</div>
+    <div class="card" style="padding:24px;margin-bottom:12px">
+      <div class="alloc-title" style="margin-bottom:12px">📈 Gráfico</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px" id="chart-pills">
+        <button class="pill active" onclick="loadChart('SP:SPX',this)">S&P 500</button>
+        <button class="pill" onclick="loadChart('NASDAQ:NDX',this)">Nasdaq</button>
+        <button class="pill" onclick="loadChart('BME:IBC',this)">IBEX 35</button>
+        <button class="pill" onclick="loadChart('EURONEXT:CAC40',this)">CAC 40</button>
+        <button class="pill" onclick="loadChart('XETR:DAX',this)">DAX</button>
+        <button class="pill" onclick="loadChart('COMEX:GC1!',this)">Oro</button>
+        <button class="pill" onclick="loadChart('BITSTAMP:BTCUSD',this)">BTC</button>
+      </div>
       <div id="tv-chart" style="height:400px;border-radius:10px;overflow:hidden"></div>
     </div>
     <div class="card" style="padding:24px;margin-bottom:12px">
@@ -143,7 +155,6 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
       <div id="news-list"><div style="color:var(--dim);font-size:.8rem;text-align:center;padding:40px">Cargando noticias...</div></div>
     </div>
   </div>
-
 </div>
 
 <!-- Import Modal -->
@@ -183,11 +194,11 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     </div>
   </div>
 </div>
+
 <script>
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-const REFRESH_MS = 300000; // 5 min
-const FX = {EUR:1, USD:0.92, CAD:0.68, GBP:1.17}; // fallback, overridden by API
-
+const REFRESH_MS = 300000;
+const FX = {EUR:1, USD:0.92, CAD:0.68, GBP:1.17};
 const TMETA = {
   'Acción':    {color:'#60a5fa', icon:'📈', bg:'#60a5fa18'},
   'ETF':       {color:'#a78bfa', icon:'🧩', bg:'#a78bfa18'},
@@ -202,11 +213,27 @@ const gm = t => TMETA[t] || {color:'#94a3b8', icon:'•', bg:'#94a3b818'};
 let holdings = [];
 let prices = {};
 let usdEur = 0.92;
-let fxRates = { EUR:1, USD:0.92, GBP:1.17, SEK:0.087, CAD:0.68 }; 
+let fxRates = { EUR:1, USD:0.92, GBP:1.17, SEK:0.087, CAD:0.68 };
 let filterTipo = 'Todos';
 let editKey = null;
 let countdown = 300;
 let ivRefresh, ivTick;
+
+const MARKET_ITEMS = [
+  {key:'^GSPC',     label:'S&P 500',      region:'EE.UU.',   weight:9},
+  {key:'^IXIC',     label:'Nasdaq',       region:'EE.UU.',   weight:8},
+  {key:'^STOXX50E', label:'EuroStoxx 50', region:'Europa',   weight:7},
+  {key:'^GDAXI',    label:'DAX',          region:'Europa',   weight:6},
+  {key:'^FCHI',     label:'CAC 40',       region:'Europa',   weight:5},
+  {key:'^IBEX',     label:'IBEX 35',      region:'España',   weight:4},
+  {key:'URTH',      label:'MSCI World',   region:'Global',   weight:7},
+  {key:'IEUR.L',    label:'MSCI Europe',  region:'Global',   weight:5},
+  {key:'GC=F',      label:'Oro',          region:'Materias', weight:6},
+  {key:'SI=F',      label:'Plata',        region:'Materias', weight:4},
+  {key:'BTC-USD',   label:'Bitcoin',      region:'Crypto',   weight:5},
+  {key:'EURUSD=X',  label:'EUR/USD',      region:'Divisas',  weight:5},
+  {key:'^EURIBOR3M',label:'Euríbor 3M',   region:'Tipos',    weight:3},
+];
 
 // ─── SAMPLE DATA ──────────────────────────────────────────────────────────────
 const SAMPLE = [
@@ -295,34 +322,19 @@ function enrich(hs){
     const isCash=tipo==='Cash';
     const key=h.ticker?h.ticker.toUpperCase():null;
     const live=key?prices[key]:null;
-
-    // Divisa nativa del activo
     const currency = live ? live.currency : (h.divisa || 'EUR');
-
-    // Tipo de cambio nativa → EUR
     let toEUR = 1;
-    if (currency === 'GBp') {
-      toEUR = (fxRates['GBP'] || 1.17) / 100;
-    } else if (currency !== 'EUR') {
-      toEUR = fxRates[currency] || FX[currency] || 1;
-    }
-
-    // Precio actual en divisa original (live.originalPrice) o fallback al precio compra
+    if (currency === 'GBp') toEUR = (fxRates['GBP'] || 1.17) / 100;
+    else if (currency !== 'EUR') toEUR = fxRates[currency] || FX[currency] || 1;
     const paOrig = live ? (live.originalPrice || live.price / toEUR) : h.precio_compra;
     const pcOrig = h.precio_compra;
-
-    // Ganancia en divisa original, luego convertida a EUR
     const ganOrigUnit = !isCash ? paOrig - pcOrig : 0;
-    const ganOrigTotal = ganOrigUnit * h.cantidad;
-    const ganAbs = ganOrigTotal * toEUR;
+    const ganAbs = ganOrigUnit * h.cantidad * toEUR;
     const ganPct = !isCash && pcOrig > 0 ? ((paOrig - pcOrig) / pcOrig) * 100 : 0;
-
-    // Valores en EUR
     const pcEUR = pcOrig * toEUR;
     const paEUR = live ? live.price : pcEUR;
     const vC = pcEUR * h.cantidad;
     const vA = paEUR * h.cantidad;
-
     return {...h, tipo, pcEUR, paEUR, pcOrig, paOrig, currency, toEUR, vC, vA, ganPct, ganAbs,
       change24h: live ? (live.change24h || 0) : 0,
       ch24Abs: live ? ((live.change24h || 0) / 100) * vA : 0,
@@ -330,7 +342,7 @@ function enrich(hs){
   });
 }
 
-// ─── FETCH MARKETS (separado para no sobrecargar la función) ──────────────────
+// ─── FETCH MARKETS ────────────────────────────────────────────────────────────
 async function fetchMarkets(){
   const marketTickers = ['GC=F','SI=F','EURUSD=X','BTC-USD','^GSPC','^IXIC','^IBEX','^STOXX50E','URTH','IEUR.L','^FCHI','^GDAXI','^EURIBOR3M'];
   const params = new URLSearchParams({ tickers: marketTickers.join(','), isins:'', cryptos:'' });
@@ -346,31 +358,8 @@ async function fetchMarkets(){
     render();
   } catch(e) { console.error('markets error:', e); }
 }
-  async function fetchNews(){
-  const feeds = [
-    'https://feeds.bloomberg.com/markets/news.rss',
-    'https://www.expansion.com/rss/mercados.xml',
-    'https://cincodias.elpais.com/seccion/rss/mercados/',
-  ];
-  const params = new URLSearchParams({ rss: feeds[1] });
-  try {
-    const resp = await fetch('/.netlify/functions/news?' + params);
-    if(!resp.ok) return;
-    const data = await resp.json();
-    document.getElementById('news-list').innerHTML = data.items.map(item =>
-      '<div style="border-bottom:1px solid var(--border);padding:14px 0;display:flex;flex-direction:column;gap:5px">'+
-      '<a href="'+item.link+'" target="_blank" style="font-size:.85rem;font-weight:700;color:var(--text);text-decoration:none;line-height:1.4">'+item.title+'</a>'+
-      '<div style="display:flex;gap:10px;align-items:center">'+
-      '<span style="font-size:.65rem;color:var(--dim);font-family:monospace">'+item.date+'</span>'+
-      '<span style="font-size:.65rem;color:var(--blue);font-family:monospace">'+item.source+'</span>'+
-      '</div>'+
-      (item.summary?'<div style="font-size:.75rem;color:var(--muted);line-height:1.5">'+item.summary+'</div>':'')+
-      '</div>'
-    ).join('');
-  } catch(e) { document.getElementById('news-list').innerHTML='<div style="color:var(--red);font-size:.8rem">Error cargando noticias</div>'; }
-}
 
-// ─── FETCH PRICES via Netlify Function ────────────────────────────────────────
+// ─── FETCH PRICES ────────────────────────────────────────────────────────────
 async function fetchPrices(hs){
   setStatus('<span class="spin">⟳</span> cargando precios...');
   const byType = {isins:[], tickers:[], cryptos:[]};
@@ -385,7 +374,7 @@ async function fetchPrices(hs){
     else byType.tickers.push(h.ticker);
   });
   const params = new URLSearchParams({
-    isins:   byType.isins.join(','),
+    isins: byType.isins.join(','),
     tickers: byType.tickers.join(','),
     cryptos: byType.cryptos.join(','),
   });
@@ -412,11 +401,11 @@ async function fetchPrices(hs){
   fetchMarkets();
   render();
 }
+
 // ─── RENDER ───────────────────────────────────────────────────────────────────
 function render(){
   const enriched=enrich(holdings);
 
-  // Markets (siempre visible)
   const marketItems=[
     {key:'GC=F',      label:'Oro',          unit:'$/oz', decimals:0},
     {key:'SI=F',      label:'Plata',        unit:'$/oz', decimals:2},
@@ -540,34 +529,8 @@ function render(){
       '<span style="font-size:.7rem;font-family:monospace;width:40px;text-align:right">'+pct.toFixed(1)+'%</span></div>';
   }).join('');
 }
-// ─── TABS / FILTERS ───────────────────────────────────────────────────────────
-function setTab(tab,btn){
-  document.querySelectorAll('#tab-bar>.pill').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('portfolio-view').style.display=tab==='portfolio'?'':'none';
-  document.getElementById('allocation-view').style.display=tab==='allocation'?'':'none';
-  document.getElementById('news-view').style.display=tab==='news'?'':'none';
-  document.getElementById('filter-pills').style.display=tab==='portfolio'?'flex':'none';
-  if(tab==='news'){ renderHeatmap(); renderMacro(); fetchNews(); loadChart('SP:SPX'); }
-}
 
-function renderHeatmap(){
-const MARKET_ITEMS = [
-  {key:'^GSPC',     label:'S&P 500',      region:'EE.UU.',    weight:9},
-  {key:'^IXIC',     label:'Nasdaq',       region:'EE.UU.',    weight:8},
-  {key:'^STOXX50E', label:'EuroStoxx 50', region:'Europa',    weight:7},
-  {key:'^GDAXI',    label:'DAX',          region:'Europa',    weight:6},
-  {key:'^FCHI',     label:'CAC 40',       region:'Europa',    weight:5},
-  {key:'^IBEX',     label:'IBEX 35',      region:'España',    weight:4},
-  {key:'URTH',      label:'MSCI World',   region:'Global',    weight:7},
-  {key:'IEUR.L',    label:'MSCI Europe',  region:'Global',    weight:5},
-  {key:'GC=F',      label:'Oro',          region:'Materias',  weight:6},
-  {key:'SI=F',      label:'Plata',        region:'Materias',  weight:4},
-  {key:'BTC-USD',   label:'Bitcoin',      region:'Crypto',    weight:5},
-  {key:'EURUSD=X',  label:'EUR/USD',      region:'Divisas',   weight:5},
-  {key:'^EURIBOR3M',label:'Euríbor 3M',   region:'Tipos',     weight:3},
-];
-
+// ─── NEWS TAB ─────────────────────────────────────────────────────────────────
 function setMarketView(view, btn){
   document.querySelectorAll('#view-table,#view-heat').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
@@ -576,79 +539,65 @@ function setMarketView(view, btn){
 }
 
 function renderHeatmap(){
-  // ── TABLA ──
   const rows = MARKET_ITEMS.map(m => {
     const p = prices[m.key];
     const chg = p ? p.change24h : null;
     const val = p ? p.price.toLocaleString('es-ES',{maximumFractionDigits:2}) : '—';
-    const chgColor = chg == null ? 'var(--dim)' : chg >= 0 ? 'var(--green)' : 'var(--red)';
-    const barW = chg != null ? Math.min(Math.abs(chg) / 3 * 100, 100) : 0;
-    const barColor = chg != null && chg >= 0 ? 'var(--green)' : 'var(--red)';
-    return `<tr style="border-bottom:1px solid var(--border)">
-      <td style="padding:9px 12px;font-size:.75rem;color:var(--muted);font-family:monospace;width:90px">${m.region}</td>
-      <td style="padding:9px 12px;font-size:.82rem;font-weight:700">${m.label}</td>
-      <td style="padding:9px 12px;font-family:monospace;font-size:.82rem;text-align:right">${val}</td>
-      <td style="padding:9px 12px;text-align:right;width:80px">
-        ${chg!=null?`<span style="color:${chgColor};font-family:monospace;font-size:.78rem;font-weight:700">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</span>`:'<span style="color:var(--dim)">—</span>'}
-      </td>
-      <td style="padding:9px 12px;width:80px">
-        <div style="height:4px;background:var(--border);border-radius:4px;overflow:hidden">
-          <div style="width:${barW}%;height:100%;background:${barColor};border-radius:4px;transition:width .3s"></div>
-        </div>
-      </td>
-    </tr>`;
+    const chgColor = chg==null ? 'var(--dim)' : chg>=0 ? 'var(--green)' : 'var(--red)';
+    const barW = chg!=null ? Math.min(Math.abs(chg)/3*100,100) : 0;
+    const barColor = chg!=null && chg>=0 ? 'var(--green)' : 'var(--red)';
+    return '<tr style="border-bottom:1px solid var(--border)">'+
+      '<td style="padding:9px 12px;font-size:.75rem;color:var(--muted);font-family:monospace;width:90px">'+m.region+'</td>'+
+      '<td style="padding:9px 12px;font-size:.82rem;font-weight:700">'+m.label+'</td>'+
+      '<td style="padding:9px 12px;font-family:monospace;font-size:.82rem;text-align:right">'+val+'</td>'+
+      '<td style="padding:9px 12px;text-align:right;width:80px">'+
+        (chg!=null?'<span style="color:'+chgColor+';font-family:monospace;font-size:.78rem;font-weight:700">'+(chg>=0?'▲':'▼')+' '+Math.abs(chg).toFixed(2)+'%</span>':'<span style="color:var(--dim)">—</span>')+
+      '</td>'+
+      '<td style="padding:9px 12px;width:80px">'+
+        '<div style="height:4px;background:var(--border);border-radius:4px;overflow:hidden">'+
+        '<div style="width:'+barW+'%;height:100%;background:'+barColor+';border-radius:4px"></div></div>'+
+      '</td></tr>';
   }).join('');
 
-  document.getElementById('market-table').innerHTML =
-    `<table style="width:100%;border-collapse:collapse">
-      <thead><tr>
-        <th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:left">REGIÓN</th>
-        <th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:left">MERCADO</th>
-        <th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:right">PRECIO</th>
-        <th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:right">VAR. 24H</th>
-        <th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace"></th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+  document.getElementById('market-table').innerHTML=
+    '<table style="width:100%;border-collapse:collapse">'+
+    '<thead><tr>'+
+    '<th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:left">REGIÓN</th>'+
+    '<th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:left">MERCADO</th>'+
+    '<th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:right">PRECIO</th>'+
+    '<th style="padding:6px 12px;font-size:.58rem;color:var(--dim);font-family:monospace;text-align:right">VAR. 24H</th>'+
+    '<th></th></tr></thead><tbody>'+rows+'</tbody></table>';
 
-  // ── MAPA DE CALOR ──
-  const total = MARKET_ITEMS.reduce((s,m) => s + m.weight, 0);
-  const blocks = MARKET_ITEMS.map(m => {
-    const p = prices[m.key];
-    const chg = p ? p.change24h : null;
-    const val = p ? p.price.toLocaleString('es-ES',{maximumFractionDigits:2}) : '—';
-    const intensity = chg != null ? Math.min(Math.abs(chg) / 4, 1) : 0;
-    const bg = chg == null ? '#1a2235'
-      : chg >= 0 ? `rgba(52,211,153,${0.15 + intensity * 0.7})`
-                 : `rgba(248,113,113,${0.15 + intensity * 0.7})`;
-    const textColor = chg == null ? 'var(--dim)' : Math.abs(chg) > 1.5 ? '#fff' : 'var(--text)';
-    const pct = (m.weight / total * 100).toFixed(1);
-    return `<div style="flex:${m.weight};min-width:80px;min-height:${m.weight > 6 ? 100 : 70}px;
-      background:${bg};border-radius:8px;display:flex;flex-direction:column;
-      align-items:center;justify-content:center;gap:3px;padding:8px;cursor:default;
-      border:1px solid rgba(255,255,255,0.04);transition:all .2s"
-      onmouseover="this.style.filter='brightness(1.2)'" onmouseout="this.style.filter=''">
-      <div style="font-size:.62rem;color:${textColor};opacity:.7;font-family:monospace;text-align:center">${m.region}</div>
-      <div style="font-size:.78rem;font-weight:800;color:${textColor};text-align:center;line-height:1.2">${m.label}</div>
-      <div style="font-size:.72rem;font-family:monospace;color:${textColor}">${val}</div>
-      ${chg!=null?`<div style="font-size:.7rem;font-weight:700;color:${textColor}">${chg>=0?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</div>`:''}
-    </div>`;
-  }).join('');
+  const total = MARKET_ITEMS.reduce((s,m)=>s+m.weight,0);
+  document.getElementById('market-heat').innerHTML=
+    '<div style="display:flex;flex-wrap:wrap;gap:6px">'+
+    MARKET_ITEMS.map(m=>{
+      const p=prices[m.key];
+      const chg=p?p.change24h:null;
+      const val=p?p.price.toLocaleString('es-ES',{maximumFractionDigits:2}):'—';
+      const intensity=chg!=null?Math.min(Math.abs(chg)/4,1):0;
+      const bg=chg==null?'#1a2235':chg>=0?'rgba(52,211,153,'+(0.15+intensity*0.7)+')':'rgba(248,113,113,'+(0.15+intensity*0.7)+')';
+      const tc=chg==null?'var(--dim)':Math.abs(chg||0)>1.5?'#fff':'var(--text)';
+      return '<div style="flex:'+m.weight+';min-width:80px;min-height:'+(m.weight>6?100:70)+'px;background:'+bg+';border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px;border:1px solid rgba(255,255,255,0.04)">'+
+        '<div style="font-size:.58rem;color:'+tc+';opacity:.7;font-family:monospace">'+m.region+'</div>'+
+        '<div style="font-size:.78rem;font-weight:800;color:'+tc+';text-align:center">'+m.label+'</div>'+
+        '<div style="font-size:.72rem;font-family:monospace;color:'+tc+'">'+val+'</div>'+
+        (chg!=null?'<div style="font-size:.7rem;font-weight:700;color:'+tc+'">'+(chg>=0?'▲':'▼')+' '+Math.abs(chg).toFixed(2)+'%</div>':'')+
+        '</div>';
+    }).join('')+'</div>';
+}
 
-  document.getElementById('market-heat').innerHTML =
-    `<div style="display:flex;flex-wrap:wrap;gap:6px">${blocks}</div>`;
-}  
 function renderMacro(){
   const macro=[
-    {label:'Fed Funds Rate', val:'5.25–5.50%', sub:'EE.UU.', color:'var(--blue)'},
-    {label:'Tipo BCE',       val:'4.50%',       sub:'Eurozona', color:'var(--purple)'},
-    {label:'Tipo BoE',       val:'5.25%',       sub:'Reino Unido', color:'var(--amber)'},
-    {label:'Euríbor 12M',    val:prices['^EURIBOR3M']?prices['^EURIBOR3M'].price.toFixed(3)+'%':'—', sub:'3 meses', color:'var(--green)'},
+    {label:'Fed Funds Rate', val:'4.25–4.50%', sub:'EE.UU.',      color:'var(--blue)'},
+    {label:'Tipo BCE',       val:'2.65%',       sub:'Eurozona',    color:'var(--purple)'},
+    {label:'Tipo BoE',       val:'4.50%',       sub:'Reino Unido', color:'var(--amber)'},
+    {label:'Euríbor 3M',     val:prices['^EURIBOR3M']?prices['^EURIBOR3M'].price.toFixed(3)+'%':'—', sub:'3 meses', color:'var(--green)'},
     {label:'EUR/USD',        val:prices['EURUSD=X']?prices['EURUSD=X'].price.toFixed(4):'—', sub:'Tipo de cambio', color:'var(--text)'},
-    {label:'VIX',            val:prices['^VIX']?prices['^VIX'].price.toFixed(2):'—', sub:'Volatilidad S&P', color:'var(--red)'},
+    {label:'Oro',            val:prices['GC=F']?prices['GC=F'].price.toLocaleString('es-ES',{maximumFractionDigits:0})+' $':'—', sub:'$/oz', color:'var(--amber)'},
   ];
   document.getElementById('macro-grid').innerHTML=macro.map(m=>
-    '<div class="card" style="padding:14px;border:1px solid var(--border)">'+
+    '<div class="card" style="padding:14px">'+
     '<div style="font-size:.58rem;color:var(--dim);font-family:monospace;text-transform:uppercase;letter-spacing:1px">'+m.label+'</div>'+
     '<div style="font-size:1.1rem;font-weight:800;margin:4px 0;color:'+m.color+'">'+m.val+'</div>'+
     '<div style="font-size:.65rem;color:var(--muted);font-family:monospace">'+m.sub+'</div>'+
@@ -656,14 +605,12 @@ function renderMacro(){
   ).join('');
 }
 
-let tvWidget=null;
 function loadChart(symbol, btn){
   if(btn){ document.querySelectorAll('#chart-pills .pill').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); }
   document.getElementById('tv-chart').innerHTML=
     '<iframe src="https://s.tradingview.com/widgetembed/?frameElementId=tv&symbol='+encodeURIComponent(symbol)+
-    '&interval=D&hidesidetoolbar=1&hidetoptoolbar=0&symboledit=1&saveimage=0&toolbarbg=0d1117&studies=[]'+
-    '&theme=dark&style=1&timezone=Europe%2FMadrid&withdateranges=1&showpopupbutton=0&studies_overrides={}'+
-    '&overrides={}&enabled_features=[]&disabled_features=[]&locale=es" '+
+    '&interval=D&hidesidetoolbar=1&hidetoptoolbar=0&symboledit=1&saveimage=0&toolbarbg=0d1117'+
+    '&theme=dark&style=1&timezone=Europe%2FMadrid&withdateranges=1&locale=es" '+
     'style="width:100%;height:400px;border:none;border-radius:10px"></iframe>';
 }
 
@@ -672,7 +619,7 @@ async function fetchNews(){
     const resp = await fetch('/.netlify/functions/news');
     if(!resp.ok) return;
     const data = await resp.json();
-    document.getElementById('news-list').innerHTML = data.items.map(item =>
+    document.getElementById('news-list').innerHTML = data.items.map(item=>
       '<div style="border-bottom:1px solid var(--border);padding:14px 0;display:flex;flex-direction:column;gap:5px">'+
       '<a href="'+item.link+'" target="_blank" style="font-size:.85rem;font-weight:700;color:var(--text);text-decoration:none;line-height:1.4">'+item.title+'</a>'+
       '<div style="display:flex;gap:10px;align-items:center">'+
@@ -686,6 +633,19 @@ async function fetchNews(){
     document.getElementById('news-list').innerHTML='<div style="color:var(--red);font-size:.8rem">Error cargando noticias</div>';
   }
 }
+
+// ─── TABS / FILTERS ───────────────────────────────────────────────────────────
+function setTab(tab,btn){
+  document.querySelectorAll('#tab-bar>.pill').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('portfolio-view').style.display=tab==='portfolio'?'':'none';
+  document.getElementById('allocation-view').style.display=tab==='allocation'?'':'none';
+  document.getElementById('news-view').style.display=tab==='news'?'':'none';
+  document.getElementById('filter-pills').style.display=tab==='portfolio'?'flex':'none';
+  if(tab==='news'){ renderHeatmap(); renderMacro(); fetchNews(); loadChart('SP:SPX'); }
+}
+function setFilter(t){ filterTipo=t; render(); }
+
 // ─── COUNTDOWN ────────────────────────────────────────────────────────────────
 function startCountdown(){
   clearInterval(ivRefresh); clearInterval(ivTick);
@@ -710,6 +670,7 @@ function loadData(csv, save=true){
     render(); fetchPrices(holdings); startCountdown();
   }catch(e){ errEl.textContent='⚠ Error: '+e.message; errEl.style.display='block'; }
 }
+
 // ─── MODAL ────────────────────────────────────────────────────────────────────
 function openModal(){ document.getElementById('modal-bg').classList.add('open'); }
 function closeModal(){ document.getElementById('modal-bg').classList.remove('open'); }
@@ -721,6 +682,7 @@ function loadFile(input){
   reader.readAsText(file,'UTF-8');
 }
 function refresh(){ fetchPrices(holdings); countdown=300; }
+
 // ─── EDIT ─────────────────────────────────────────────────────────────────────
 function openEdit(key,nombre){
   editKey=key.toUpperCase();
@@ -735,7 +697,6 @@ function saveEdit(){
   const val=parseFloat(document.getElementById('edit-input').value);
   if(isNaN(val)||val<=0){ document.getElementById('edit-input').style.borderColor='var(--red)'; return; }
   prices[editKey]={price:val,change24h:prices[editKey]?(prices[editKey].change24h||0):0,source:'Manual'};
-  // Guardar precios manuales en localStorage
   const manualPrices=JSON.parse(localStorage.getItem('manual_prices')||'{}');
   manualPrices[editKey]=val;
   localStorage.setItem('manual_prices', JSON.stringify(manualPrices));
@@ -745,7 +706,6 @@ function saveEdit(){
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 (function(){
   document.getElementById('btn-import').addEventListener('click', openModal);
-  // Restaurar precios manuales guardados
   const manualPrices=JSON.parse(localStorage.getItem('manual_prices')||'{}');
   Object.entries(manualPrices).forEach(([k,v])=>{
     prices[k]={price:v,change24h:0,source:'Manual'};
